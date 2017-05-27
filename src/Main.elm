@@ -1,11 +1,11 @@
 module Main exposing (main)
 
-import Html.App    as App
-import Html        exposing (..)
+import Html as App
+import Html exposing (..)
 import Html.Events exposing (..)
 import WebSocket
 
-main : Program Never
+main : Program Never Model Msg 
 main =
   App.program
      { init          = init

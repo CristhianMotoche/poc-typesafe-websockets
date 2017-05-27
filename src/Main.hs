@@ -3,6 +3,7 @@
 
 module Main where
 
+import qualified Control.Monad.IO.Class         as IO
 import qualified Control.Concurrent             as Concurrent
 import qualified Control.Exception              as Exception
 import qualified Control.Monad                  as Monad
@@ -32,7 +33,7 @@ type Client   = (ClientId, WS.Connection)
 type State    = [Client]
 
 nextId :: State -> ClientId
-nextId = Maybe.maybe 0 ((+) 1) . Safe.maximumMay . List.map fst
+nextId = Maybe.maybe 0 (+ 1) . Safe.maximumMay . List.map fst
 
 connectClient :: WS.Connection -> Concurrent.MVar State -> IO ClientId
 connectClient conn stateRef = Concurrent.modifyMVar stateRef $ \state -> do
@@ -47,13 +48,14 @@ disconnectClient clientId stateRef = Concurrent.modifyMVar_ stateRef $ \state ->
   return $ withoutClient clientId state
 
 listen :: WS.Connection -> ClientId -> Concurrent.MVar State -> IO ()
-listen conn clientId stateRef = Monad.forever $ do
+listen conn clientId stateRef = Monad.forever $
   WS.receiveData conn >>= broadcast clientId stateRef
 
 broadcast :: ClientId -> Concurrent.MVar State -> Text.Text -> IO ()
 broadcast clientId stateRef msg = do
   clients <- Concurrent.readMVar stateRef
   let otherClients = withoutClient clientId clients
+  putStrLn $ "Message from: " ++ show clientId ++ " to: " ++ show (map fst otherClients)
   Monad.forM_ otherClients $ \(_, conn) ->
     WS.sendTextData conn msg
 
@@ -61,6 +63,7 @@ wsApp :: Concurrent.MVar State -> WS.ServerApp
 wsApp stateRef pendingConn = do
   conn <- WS.acceptRequest pendingConn
   clientId <- connectClient conn stateRef
+  IO.liftIO $ putStrLn ("The client with Id: " ++ show clientId ++ " has been connected.")
   WS.forkPingThread conn 30
   Exception.finally
     (listen conn clientId stateRef)

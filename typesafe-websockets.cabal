@@ -24,3 +24,4 @@ executable typesafe-websockets
                      , websockets
                      , http-types
                      , safe
+                     , transformers
